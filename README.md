@@ -21,9 +21,15 @@ Note that Vendor might not be displayed properly due the the request limits on h
 
 ## Install
 You need to have basic commands (ip, grep, awk, sed etc...) available.
+Also bash (if you do not have it already):
 ```
-cat <<'THE_END' > /bin/list-clients && chmod +x /bin/list-clients && sed -i -e 's/\t//g' -e '/^[[:space:]]*$/d' -e '/^# /d' /bin/list-clients && grep -qxF '/bin/list-clients' /etc/sysupgrade.conf || echo '/bin/list-clients' >> /etc/sysupgrade.conf
-#!/bin/sh
+opkg update
+opkg install bash
+```
+Switch to `bash`
+```
+cat << 'THE_END' > /bin/list-clients && chmod +x /bin/list-clients && sed -i -e 's/\t//g' -e '/^[[:space:]]*$/d' -e '/^# /d' /bin/list-clients && grep -qxF '/bin/list-clients' /etc/sysupgrade.conf || echo '/bin/list-clients' >> /etc/sysupgrade.conf
+#!/bin/bash
 
 LEASES="/tmp/dhcp.leases"
 MAC_VENDORS="/etc/mac-vendors.db"
@@ -32,16 +38,16 @@ MAC_VENDORS="/etc/mac-vendors.db"
 MAC_CACHE=$(cat "$MAC_VENDORS" 2>/dev/null)
 
 # Print header
-printf "%-25s %-17s %-25s %-24s %-18s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface" "Method" "State"
+printf "%-26s %-17s %-28s %-24s %-18s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface" "Method" "State"
 printf "%s\n" "-------------------------------------------------------------------------------------------------------------------------------------"
 
 ONLN=1
 
 ip neigh show | sort | while read -r l; do
-	ip=$(echo "$l"   | awk '{print $1}')
-	ifc=$(echo "$l"  | sed -n 's/.* dev \([^ ]*\).*/\1/p')
-	mac=$(echo "$l"  | sed -n 's/.* lladdr \([^ ]*\).*/\1/p')
-	state=$(echo "$l"| awk '{print $NF}')
+	ip=$(awk '{print $1}' <<< "$l")
+	ifc=$(sed -n 's/.* dev \([^ ]*\).*/\1/p' <<< "$l")
+	mac=$(sed -n 's/.* lladdr \([^ ]*\).*/\1/p' <<< "$l")
+	state=$(awk '{print $NF}' <<< "$l")
 
 	[ -z "$ip" ] && ip="-"
 	[ -z "$ifc" ] && ifc="-"
@@ -62,10 +68,10 @@ ip neigh show | sort | while read -r l; do
 
 	# Mac vend lookup with local cache
 	vend="-"
-	pref=$(echo "$mac" | tr '[:lower:]' '[:upper:]' | cut -d: -f1-3)
+	pref=$(tr '[:lower:]' '[:upper:]' <<< "$mac" | cut -d: -f1-3)
 
 	if [ -n "$pref" ]; then
-		vend=$(echo "$MAC_CACHE" | grep -i "^$pref=" | head -n1 | cut -d= -f2-)
+		vend=$(grep -i "^$pref=" <<< "$MAC_CACHE" | head -n1 | cut -d= -f2-)
 	fi
 
 	if [ -z "$vend" ] && [ "$pref" != "---" ] && [ "$ONLN" -eq 1 ]; then
@@ -90,7 +96,7 @@ ip neigh show | sort | while read -r l; do
 	owrtIfc=$(uci show network | grep "$ifc" | cut -d. -f2 | cut -d= -f1 | head -n1)
 	[ -z "$owrtIfc" ] && owrtIfc="-"
 
-	printf "%-25s %-17s %-25s %-24s %-18s %-10s %-10s\n" "$ip" "$mac" "$vend" "$host" "$owrtIfc ($ifc)" "$meth" "$state"
+	printf "%-26s %-17s %-28s %-24s %-18s %-10s %-10s\n" "$ip" "$mac" "$vend" "$host" "$owrtIfc ($ifc)" "$meth" "$state"
 done
 
 THE_END
