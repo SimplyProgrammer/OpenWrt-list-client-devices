@@ -1,14 +1,15 @@
 #!/bin/bash
 
 LEASES="/tmp/dhcp.leases"
+ETHS="/etc/ethers"
 MAC_VENDORS="/etc/mac-vendors.db"
 
 # Mac vendor cahce
 MAC_CACHE=$(cat "$MAC_VENDORS" 2>/dev/null)
 
 # Print header
-printf "%-26s %-17s %-28s %-24s %-18s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface" "Method" "State"
-printf "%s\n" "-------------------------------------------------------------------------------------------------------------------------------------"
+printf "%-28s %-17s %-28s %-24s %-18s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface" "Method" "State"
+printf "%s\n" "-----------------------------------------------------------------------------------------------------------------------------------------"
 
 ONLN=1
 
@@ -26,9 +27,9 @@ ip neigh show | sort | while read -r l; do
 	host=$(awk -v mac="$mac" '$2 == mac {print $4}' "$LEASES" 2>/dev/null)
 	if [ -n "$host" ]; then
 		meth="DHCP"
-	elif grep -qi "^[[:space:]]*$mac[[:space:]]" /etc/ethers 2>/dev/null; then
+	elif grep -qi "^[[:space:]]*$mac[[:space:]]" "$ETHS" 2>/dev/null; then
 		meth="Static"
-		[ -z "$host" ] && host=$(awk -v mac="$mac" 'BEGIN{IGNORECASE=1} $1==mac {print $2}' /etc/ethers 2>/dev/null)
+		[ -z "$host" ] && host=$(awk -v mac="$mac" 'BEGIN{IGNORECASE=1} $1==mac {print $2}' "$ETHS" 2>/dev/null)
 	else
 		meth="Static/?"
 	fi
@@ -45,8 +46,7 @@ ip neigh show | sort | while read -r l; do
 	if [ -z "$vend" ] && [ "$pref" != "---" ] && [ "$ONLN" -eq 1 ]; then
 		t0=$(date +%s)
 		resp=$(wget -qO- "https://api.macvendors.com/$mac" 2>/dev/null)
-		t=$(date +%s)
-		elap=$((t - t0))
+		elap=$(($(date +%s) - t0))
 
 		if [ "$elap" -gt 4 ]; then
 			ONLN=0
@@ -62,8 +62,8 @@ ip neigh show | sort | while read -r l; do
 	[ -z "$mac" ] && mac="-"
 	[ -z "$vend" ] && vend="-"
 
-	owrtIfc=$(uci show network | grep "$ifc" | cut -d. -f2 | cut -d= -f1 | head -n1)
+	owrtIfc=$(uci show network 2>/dev/null | grep "$ifc" | cut -d. -f2 | cut -d= -f1 | head -n1)
 	[ -z "$owrtIfc" ] && owrtIfc="-"
 
-	printf "%-26s %-17s %-28s %-24s %-18s %-10s %-10s\n" "$ip" "$mac" "$vend" "$host" "$owrtIfc ($ifc)" "$meth" "$state"
+	printf "%-28s %-17s %-28s %-24s %-18s %-10s %-10s\n" "$ip" "$mac" "$vend" "$host" "$owrtIfc ($ifc)" "$meth" "$state"
 done
