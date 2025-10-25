@@ -1,4 +1,4 @@
-# OpenWrt-list-clients
+# OpenWrt-list-client-devices
 Lightweight OpenWrt script to show all client devices no matter the connection type (Wired, Wireless, DHCP or Static).
 
 This can be considered a programmatic and better way to LuCi's Status > Routing - IP Neighbors
@@ -97,4 +97,5 @@ THE_END
 ```
 
 Now you can simply run it as `list-clients` and add it as a Custom command (System > Custom commands) to LuCi!
+
 Note that command might not work properly if not run with root privileges.
