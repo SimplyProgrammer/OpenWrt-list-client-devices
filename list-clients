@@ -20,7 +20,6 @@ ip neigh show | sort | while read -r l; do
 
 	[ -z "$ip" ] && ip="-"
 	[ -z "$ifc" ] && ifc="-"
-	[ -z "$mac" ] && mac="-"
 	[ -z "$state" ] && state="-"
 
 	# Hostname & Method detection
@@ -60,6 +59,7 @@ ip neigh show | sort | while read -r l; do
 }$pref=$vend"
 		fi
 	fi
+	[ -z "$mac" ] && mac="-"
 	[ -z "$vend" ] && vend="-"
 
 	owrtIfc=$(uci show network | grep "$ifc" | cut -d. -f2 | cut -d= -f1 | head -n1)
