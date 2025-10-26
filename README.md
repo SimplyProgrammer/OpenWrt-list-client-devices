@@ -29,7 +29,7 @@ opkg install bash
 Switch to `bash`
 ```
 cat << 'THE_END' > /bin/list-clients && chmod +x /bin/list-clients && sed -i -e 's/\t//g' -e '/^[[:space:]]*$/d' -e '/^# /d' /bin/list-clients && grep -qxF '/bin/list-clients' /etc/sysupgrade.conf || echo '/bin/list-clients' >> /etc/sysupgrade.conf
-#!/bin/bash
+#!/bin/sh
 
 LEASES="/tmp/dhcp.leases"
 ETHS="/etc/ethers"
@@ -39,16 +39,16 @@ MAC_VENDORS="/etc/mac-vendors.db"
 MAC_CACHE=$(cat "$MAC_VENDORS" 2>/dev/null)
 
 # Print header
-printf "%-28s %-17s %-28s %-24s %-18s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface" "Method" "State"
-printf "%s\n" "-----------------------------------------------------------------------------------------------------------------------------------------"
+printf "%-28s %-17s %-34s %-25s %-20s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface" "Method" "State"
+printf "%s\n" "----------------------------------------------------------------------------------------------------------------------------------------------------"
 
-ONLN=1
+elap=0
 
 ip neigh show | sort | while read -r l; do
-	ip=$(awk '{print $1}' <<< "$l")
-	ifc=$(sed -n 's/.* dev \([^ ]*\).*/\1/p' <<< "$l")
-	mac=$(sed -n 's/.* lladdr \([^ ]*\).*/\1/p' <<< "$l")
-	state=$(awk '{print $NF}' <<< "$l")
+	ip=$(echo "$l" | awk '{print $1}')
+	ifc=$(echo "$l" | sed -n 's/.* dev \([^ ]*\).*/\1/p')
+	mac=$(echo "$l" | sed -n 's/.* lladdr \([^ ]*\).*/\1/p')
+	state=$(echo "$l" | awk '{print $NF}')
 
 	[ -z "$ip" ] && ip="-"
 	[ -z "$ifc" ] && ifc="-"
@@ -56,32 +56,25 @@ ip neigh show | sort | while read -r l; do
 
 	# Hostname & Method detection
 	host=$(awk -v mac="$mac" '$2 == mac {print $4}' "$LEASES" 2>/dev/null)
+	meth="Static/?"
 	if [ -n "$host" ]; then
 		meth="DHCP"
 	elif grep -qi "^[[:space:]]*$mac[[:space:]]" "$ETHS" 2>/dev/null; then
 		meth="Static"
 		[ -z "$host" ] && host=$(awk -v mac="$mac" 'BEGIN{IGNORECASE=1} $1==mac {print $2}' "$ETHS" 2>/dev/null)
-	else
-		meth="Static/?"
 	fi
 	[ -z "$host" ] && host="-"
 
 	# Mac vend lookup with local cache
 	vend="-"
-	pref=$(tr '[:lower:]' '[:upper:]' <<< "$mac" | cut -d: -f1-3)
+	pref=$(echo "$mac" | tr '[:lower:]' '[:upper:]' | cut -d: -f1-3)
 
-	if [ -n "$pref" ]; then
-		vend=$(grep -i "^$pref=" <<< "$MAC_CACHE" | head -n1 | cut -d= -f2-)
-	fi
+	[ -n "$pref" ] && vend=$(echo "$MAC_CACHE" | grep -i "^$pref=" | head -n1 | cut -d= -f2-)
 
-	if [ -z "$vend" ] && [ "$pref" != "---" ] && [ "$ONLN" -eq 1 ]; then
+	if [ -z "$vend" ] && [ "$pref" != "---" ] && [ "$elap" -lt 4 ]; then
 		t0=$(date +%s)
 		resp=$(wget -qO- "https://api.macvendors.com/$mac" 2>/dev/null)
 		elap=$(($(date +%s) - t0))
-
-		if [ "$elap" -gt 4 ]; then
-			ONLN=0
-		fi
 
 		if [ -n "$resp" ]; then
 			vend="$resp"
@@ -96,7 +89,7 @@ ip neigh show | sort | while read -r l; do
 	owrtIfc=$(uci show network 2>/dev/null | grep "$ifc" | cut -d. -f2 | cut -d= -f1 | head -n1)
 	[ -z "$owrtIfc" ] && owrtIfc="-"
 
-	printf "%-28s %-17s %-28s %-24s %-18s %-10s %-10s\n" "$ip" "$mac" "$vend" "$host" "$owrtIfc ($ifc)" "$meth" "$state"
+	printf "%-28s %-17s %-34.34s %-25.25s %-20s %-10s %-10s\n" "$ip" "$mac" "$vend" "$host" "$owrtIfc ($ifc)" "$meth" "$state"
 done
 
 THE_END
@@ -105,3 +98,4 @@ THE_END
 Now you can simply run it as `list-clients` and add it as a Custom command (System > Custom commands) to LuCi!
 
 Note that command might not work properly if not run with root privileges.
+Also, the `list-clients` itself does not require bash to run so after you are done with the install script, you can uninstall bash if you want...
