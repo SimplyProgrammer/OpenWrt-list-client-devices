@@ -40,11 +40,12 @@ MAC_CACHE=$(cat "$MAC_VENDORS" 2>/dev/null)
 
 # Print header
 printf "%-28s %-17s %-34s %-25s %-20s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface" "Method" "State"
-printf "%s\n" "----------------------------------------------------------------------------------------------------------------------------------------------------"
+printf %150s | tr \  -
+echo
 
 elap=0
 
-ip neigh show | sort | while read -r l; do
+ip neigh | sort | while read -r l; do
 	ip=$(echo "$l" | awk '{print $1}')
 	ifc=$(echo "$l" | sed -n 's/.* dev \([^ ]*\).*/\1/p')
 	mac=$(echo "$l" | sed -n 's/.* lladdr \([^ ]*\).*/\1/p')
@@ -73,8 +74,11 @@ ip neigh show | sort | while read -r l; do
 
 	if [ -z "$vend" ] && [ "$pref" != "---" ] && [ "$elap" -lt 4 ]; then
 		t0=$(date +%s)
-		resp=$(wget -qO- "https://api.macvendors.com/$mac" 2>/dev/null)
+		jsn=$(wget -qO- "https://api.maclookup.app/v2/macs/$mac" 2>/dev/null)
 		elap=$(($(date +%s) - t0))
+
+		resp=$(printf "%s" "$jsn" | sed -E 's/.*"company": *"([^"]*)".*/\1/')
+		[ -z "$resp" ] && [ "$(printf "%s" "$jsn" | sed -E 's/.*"isRand": *([^,}]*).*/\1/')" = "true" ] && resp="*RAND*"
 
 		if [ -n "$resp" ]; then
 			vend="$resp"
