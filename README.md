@@ -39,8 +39,8 @@ MAC_VENDORS="/etc/mac-vendors.db"
 MAC_CACHE=$(cat "$MAC_VENDORS" 2>/dev/null)
 
 # Print header
-printf "%-28s %-17s %-34s %-25s %-20s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface" "Method" "State"
-printf %150s | tr \  -
+printf "%-28s %-17s %-34s %-25s %-22s %-10s %-10s\n" "IP Addr" "MAC Addr" "Vendor (MAC)" "Hostname" "Iface / SSID (dev)" "Method" "State"
+printf %155s | tr \  -
 echo
 
 elap=0
@@ -91,15 +91,18 @@ ip neigh | sort | while read -r l; do
 	[ -z "$vend" ] && vend="-"
 
 	owrtIfc=$(uci show network 2>/dev/null | grep "$ifc" | cut -d. -f2 | cut -d= -f1 | head -n1)
+	[ -z "$owrtIfc" ] && owrtIfc=$(iwinfo "$ifc" i 2>/dev/null | sed -n 's/.*ESS..: "\(.*\)".*/\1/p')
+	[ -z "$owrtIfc" ] && owrtIfc=$(iw dev "$ifc" info 2>/dev/null | awk -F 'ssid ' '/ssid/ {print $2}')
 	[ -z "$owrtIfc" ] && owrtIfc="-"
 
-	printf "%-28s %-17s %-34.34s %-25.25s %-20s %-10s %-10s\n" "$ip" "$mac" "$vend" "$host" "$owrtIfc ($ifc)" "$meth" "$state"
+	printf "%-28s %-17s %-34.34s %-25.25s %-22.22s %-10s %-10s\n" "$ip" "$mac" "$vend" "$host" "$owrtIfc ($ifc)" "$meth" "$state"
 done
 
 THE_END
 ```
 
-Now you can simply run it as `list-clients` and add it as a Custom command (System > Custom commands) to LuCi!
+Now you can simply run it as `list-clients` and add it as a Custom command (System > Custom commands) to LuCi!<br>
+Optionally you can add `iw` or `iwinfo` to if you want your wireless SSID to be resolved as fallback for Iface.
 
 Note that command might not work properly if not run with root privileges.
-Also, the `list-clients` itself does not require bash to run so after you are done with the install script, you can uninstall bash if you want...
+Also, the `list-clients` itself does not require `bash` to run so after you are done with the install script, you can uninstall bash if you want...
